@@ -1,19 +1,22 @@
 import {
   ConflictException,
+  Delete,
   ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { SignupDto } from './dto/signupDto';
+import { SignupDto } from './dto/signup.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
 import * as argon from 'argon2';
 import * as speakeasy from 'speakeasy';
 import { MailerService } from 'src/mailer/mailer.service';
-import { SigninDto } from './dto/signinDto';
+import { SigninDto } from './dto/signin.dto';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { demandeRestePasswordDto } from './dto/demandeRestePasswordDto';
-import { ResetPasswordDto } from './dto/restePasswordDto';
+import { demandeRestePasswordDto } from './dto/demandeRestePassword.dto';
+import { ResetPasswordDto } from './dto/restePassword.dto';
+import { DeleteAccountDto } from './dto/deleteAccount.dto';
+import { UpdatePasswordDto } from './dto/updatePassword.dto';
 
 @Injectable()
 export class AuthService {
@@ -110,15 +113,13 @@ export class AuthService {
       throw new ForbiddenException('please provide an existing account');
 
     //**on verifie si le code de confirmation est le meme */
-    const match = speakeasy.totp.verify({
+    let match = speakeasy.totp.verify({
       secret: this.configService.get('OTP_CODE'),
       digits: 6,
       step: 60 * 15,
       encoding: 'base32',
       token: code,
     });
-
-    console.log(match);
 
     if (!match)
       throw new UnauthorizedException('This Token is invald or has expired!');
@@ -135,6 +136,55 @@ export class AuthService {
     return {
       Satuts: 200,
       message: "User's password has been sucessfully updated!",
+    };
+  }
+
+  //DELETE YOUR ACCOUNT
+  async deleteAccount(userId: number, deleteAccountDto: DeleteAccountDto) {
+    //** Trouver l'utilisateur dont on veut reste le mot de passe */
+    const user = await this.prismaService.user.findUnique({
+      where: { userid: userId },
+    });
+    if (!user) throw new ForbiddenException('This user no longer exsist!');
+
+    // **Conparer les mots de passe
+    const pws = await argon.verify(user.password, deleteAccountDto.password);
+    if (!pws) throw new ForbiddenException('password incorrect');
+
+    //**delete a user Account */
+    await this.prismaService.user.delete({ where: { userid: userId } });
+    return {
+      date: user,
+      message: 'user was successfuly deleted',
+    };
+  }
+
+  //UPDATE PASSWORD
+  async updatePassword(userId: number, updatePasswordDto: UpdatePasswordDto) {
+    const { password, newPassword } = updatePasswordDto;
+
+    //** Trouver l'utilisateur dont on veut reste le mot de passe */
+    const user = await this.prismaService.user.findUnique({
+      where: { userid: userId },
+    });
+    if (!user) throw new ForbiddenException('This user no longer exsist!');
+
+    //**verification de l'ancien mot de pass */
+    const pws = await argon.verify(user.password, password);
+    if (!pws) throw new ForbiddenException('old password is incorrect');
+
+    //**Hash le nouveau mot de passe */
+    const hash = await argon.hash(newPassword);
+
+    //**mise a jour du nouveau mot de passe*/
+    await this.prismaService.user.update({
+      where: { userid: userId },
+      data: { password: hash },
+    });
+    Reflect.deleteProperty(user, 'password');
+    return {
+      data: user,
+      message: 'Password successfully updated!',
     };
   }
 }
