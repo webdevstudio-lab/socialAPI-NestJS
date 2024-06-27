@@ -14,11 +14,14 @@ import { CommentsService } from './comments.service';
 import { NewComDto } from './dto/newCom.dto';
 import { Request } from 'express';
 import { AuthGuard } from '@nestjs/passport';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Comments')
 @Controller('comments')
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
+  @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Post('post/:Postid')
   newComment(
@@ -30,6 +33,7 @@ export class CommentsController {
     return this.commentsService.newcomment(postId, userId, newComDto);
   }
 
+  @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Delete('/delete/:Comid')
   deleteCom(
@@ -40,6 +44,7 @@ export class CommentsController {
     return this.commentsService.deleteCom(commentId, userId);
   }
 
+  @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Put('/update/:Comid')
   updateCom(

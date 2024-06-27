@@ -9,7 +9,9 @@ import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
 import { DeleteAccountDto } from './dto/deleteAccount.dto';
 import { UpdatePasswordDto } from './dto/updatePassword.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Authentification')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -36,6 +38,7 @@ export class AuthController {
     return this.authService.resetPasswordDto(resetPasswordDto);
   }
 
+  @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Delete('delete')
   deleteAccount(
@@ -46,6 +49,7 @@ export class AuthController {
     return this.authService.deleteAccount(userId, deleteAccountDto);
   }
 
+  @ApiBearerAuth()
   @UseGuards(AuthGuard('jwt'))
   @Put('update-password')
   updatePassword(
